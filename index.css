@@ -17,9 +17,12 @@ html, body {
   align-items: center;
   background: rgba(26, 5, 3);
 }
-.clock {
+.el_psy_congroo {
   display: flex;
-  
+  padding: 15px;
+}
+.el_psy_congroo:hover {
+  cursor: pointer;
 }
 .img-wrapper {
   width: 1rem;
@@ -35,4 +38,3 @@ img {
   height: 100%;
   transition: all .5s ease-out;
 }
-

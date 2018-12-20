@@ -1,68 +1,45 @@
-var _imgAllNode = []
-var _lock = false
-var _currentRandom = 0
-var _allRandom = 25
-var _timer = null
-var _time = ''
-var _clockNode = null
-var _flag = 0
-
+let _imgWrapperNode = [] // 包裹图片的父节点集合
+let _imgAll = [] // 所有的image对象
+let _imgPromiseAll = [] // 通过此数组，确保图片已经全部加载成功
+let _lock = false // 上锁 每次只能点击一次
+let _currentRandom = 0 // 当前变换次数
+let _allRandom = 20 // 变换次数
+let _timer = null // 定时器句柄
+let _flag = 0 // 用于时钟的效果切换（主要是第三和第六节点效果）
 // 监听resize事件,并且重新设置根元素font-size
 window.addEventListener('resize', throttle(setFontSize, 500, 1000))
-function throttle(fn,wait,time){
-  var previous = null //记录上一次运行的时间
-  var timer = null // 定时器
-  return function(){
-      var now = +new Date()
-      if(!previous) previous = now
-      //当上一次执行的时间与当前的时间差大于设置的执行间隔时长的话，就主动执行一次
-      if(now - previous > time){
-          clearTimeout(timer)
-          fn()
-          // 执行函数后，马上记录当前时间
-          previous = now
-      }else{
-          clearTimeout(timer)
-          timer = setTimeout(function(){
-              fn()
-          },wait)
-      }
-  }
-}
-// 自定义事件
-var evt_change_start = document.createEvent('Event');
-evt_change_start.initEvent('timeLineChangeStart', true, true);
-window.addEventListener('timeLineChangeStart', function() {
-  timeLineChange()
-})
-var evt_change_end = document.createEvent('Event');
-evt_change_end.initEvent('timeLineChangeEnd', true, true)
-window.addEventListener('timeLineChangeEnd', function() {
-  setTimeout(() => {
-    colok()
-  }, 1000);
-})
-// 加载事件
-window.addEventListener('load', function () {
-  // 设置根元素的font-size
+// 监听load事件
+window.addEventListener('load', () => {
   setFontSize()
-  // 监听 clock上面的点击事件
-  _clockNode = document.querySelector('.clock')
-  _clockNode.addEventListener('click', function() {
+  document.querySelector('.el_psy_congroo').addEventListener('click', () => {
+    clearInterval(_timer)
     if (!_lock) {
       _currentRandom = 0
       _lock = true
-      clearInterval(_timer)
       window.dispatchEvent(evt_change_start)
     }
   })
-  _imgAllNode = document.querySelectorAll('img');
-  colok()
+  _imgWrapperNode = document.querySelectorAll('.img-wrapper')
+  for (let i=0; i<13; ++i) {
+    _imgPromiseAll[i] = imgLoad(_imgAll, i)
+  }
+  // 确保所有图片加载完成
+  Promise.all([..._imgPromiseAll]).then(() => {
+    _imgWrapperNode.forEach((item) => {
+      appendNode(item, _imgAll[10].cloneNode())
+    })
+    timeLineChange()
+  })
 })
+// 自定义事件
+const evt_change_start = new Event('timeLineChangeStart');
+window.addEventListener('timeLineChangeStart', () => timeLineChange())
+const evt_change_end= new Event('timeLineChangeEnd');
+window.addEventListener('timeLineChangeEnd', () => setTimeout(() => clock(), 1000))
 
-function setFontSize(){
-  var html = document.querySelector('html')
-  var fontSize = window.innerWidth / 10
+function setFontSize() {
+  const html = document.querySelector('html')
+  let fontSize = window.innerWidth / 10
   fontSize = fontSize > 150 ? 150 : fontSize
   html.style.fontSize = fontSize + 'px'
 }
@@ -71,61 +48,85 @@ function timeLineChange() {
       if (_currentRandom < _allRandom) {
         _currentRandom += 1
         timeLineChange()
-        _imgAllNode.forEach((item,index) => {
-          if (index === 1) {
-            item.src = './11.png'
+        _imgWrapperNode.forEach((item,idx) => {
+          if (_currentRandom > _allRandom - 5 &&  idx === 0 ) {
+            replaceNode(_imgWrapperNode[0],  _imgAll[Math.floor( Math.random() * 3)].cloneNode())
+          }
+          else if (idx !== 1) {
+            replaceNode(item, _imgAll[Math.floor( Math.random() * 10)].cloneNode())
           } else {
-            item.src = './' +Math.floor(Math.random() * 9)+'.png'
+            replaceNode(item, _imgAll[11].cloneNode())
           }
         })
       } else {
         _lock = false
-        _imgAllNode[0].src = './' +Math.floor(Math.random() * 2)+'.png'
         window.dispatchEvent(evt_change_end)
       }
-    }, (50))
+    }, (80))
 }
-
-function initClock() {
-  var nowTime = new Date()
-  var hour = nowTime.getHours()
-  var mins = nowTime.getMinutes()
-  var secs = nowTime.getSeconds()
-  hour = hour > 10 ? hour.toString() : '0' + hour
-  mins = mins > 10 ? mins.toString() : '0' + mins
-  secs = secs > 10 ? secs.toString() : '0' + secs
-  _time = hour + mins + secs
-}
-
-function colok() {
+function clock() {
   _timer = setInterval(() => {
-    var nowTime = new Date()
-    var hour = nowTime.getHours()
-    var mins = nowTime.getMinutes()
-    var secs = nowTime.getSeconds()
-    hour = hour > 10 ? hour.toString() : '0' + hour
-    mins = mins > 10 ? mins.toString() : '0' + mins
-    secs = secs > 10 ? secs.toString() : '0' + secs
-    var time = hour + mins + secs
-
-    console.log()
-      _imgAllNode[0].src = './' + Math.floor(hour/10) +'.png'
-      _imgAllNode[1].src = './' + Math.floor(hour%10) + '.png'
-      _mins = mins
-      _imgAllNode[3].src = './' + Math.floor(mins/10) +'.png'
-      _imgAllNode[4].src = './' + Math.floor(mins%10) + '.png'
-      _secs = secs
-      _imgAllNode[6].src = './' + Math.floor(secs/10) +'.png'
-      _imgAllNode[7].src = './' + Math.floor(secs%10) + '.png'
-    if (_flag === 0) {
-      _flag = 1
-      _imgAllNode[2].src = './11.png'
-      _imgAllNode[5].src = './11.png'
-    } else {
-      _flag = 0
-      _imgAllNode[2].src = './12.png'
-      _imgAllNode[5].src = './12.png'
+    const nowTime = new Date()
+    let hour = nowTime.getHours()
+    let mins = nowTime.getMinutes()
+    let secs = nowTime.getSeconds()
+    hour = hour >= 10 ? hour.toString() : '0' + hour
+    mins = mins >= 10 ? mins.toString() : '0' + mins
+    secs = secs >= 10 ? secs.toString() : '0' + secs
+    const time = hour + '.' + mins + '.' + secs
+    for (let i=0; i< time.length; ++i) {
+      if ( time[i] !== '.') {
+        replaceNode(_imgWrapperNode[i], _imgAll[time[i]].cloneNode())
+      }
     }
-  }, 500);
+    if ( _flag ===0 ) {
+      replaceNode(_imgWrapperNode[2],  _imgAll[11].cloneNode())
+      replaceNode(_imgWrapperNode[5],  _imgAll[11].cloneNode())
+    } else if (_flag === 1) {
+      replaceNode(_imgWrapperNode[2],  _imgAll[12].cloneNode())
+      replaceNode(_imgWrapperNode[5],  _imgAll[12].cloneNode())
+    }
+    _flag = _flag === 0 ? 1 : 0
+
+  }, 1000);
+}
+function imgLoad (imgAll,i) {
+  return new Promise((resolve) => {
+    imgAll[i] = new Image()
+    imgAll[i].src = './img/' + i + '.png'
+    imgAll[i].addEventListener('load', function() {
+      resolve()
+    })
+  })
 }
 
+function throttle(fn,wait,time) {
+  let previous = null //记录上一次运行的时间
+  let timer = null // 定时器
+  return () => {
+      const now = +new Date()
+      if(!previous) { 
+        previous = now 
+      }
+      //当上一次执行的时间与当前的时间差大于设置的执行间隔时长的话，就主动执行一次
+      if(now - previous > time){
+          clearTimeout(timer)
+          fn()
+          previous = now
+      } else {
+          clearTimeout(timer)
+          timer = setTimeout(() => fn(),wait)
+      }
+  }
+}
+function appendNode(paNode, newNode) {
+  paNode.appendChild(newNode)
+}
+function replaceNode(paNode, newNode) {
+  // paNode.replaceChild(newNode, paNode.firstChild)
+  // 会报错 ，但不影响执行
+  // Uncaught TypeError: Failed to execute 'replaceChild' on 'Node': 
+  // parameter 2 is not of type 'Node'.
+  paNode.innerHTML = ''
+  paNode.appendChild(newNode)
+}
