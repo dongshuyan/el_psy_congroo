@@ -1,68 +1,76 @@
 let _imgWrapperNode = [] // 包裹图片的父节点集合
 let _imgAll = [] // 所有的image对象
-let _imgPromiseAll = [] // 通过此数组，确保图片已经全部加载成功
 let _lock = false // 上锁 每次只能点击一次
 let _currentRandom = 0 // 当前变换次数
 let _allRandom = 20 // 变换次数
 let _timer = null // 定时器句柄
 let _flag = 0 // 用于时钟的效果切换（主要是第三和第六节点效果）
-// 监听resize事件,并且重新设置根元素font-size
+let _pattern = 0 // 0 表示从网络请求， 1表示从localstorage请求
 window.addEventListener('resize', throttle(setFontSize, 500, 1000))
-// 监听load事件
-window.addEventListener('load', () => {
-  setFontSize()
-  document.querySelector('.el_psy_congroo').addEventListener('click', () => {
-    clearInterval(_timer)
-    if (!_lock) {
-      _currentRandom = 0
-      _lock = true
-      window.dispatchEvent(evt_change_start)
-    }
-  })
-  _imgWrapperNode = document.querySelectorAll('.img-wrapper')
-  for (let i=0; i<13; ++i) {
-    _imgPromiseAll[i] = imgLoad(_imgAll, i)
-  }
-  // 确保所有图片加载完成
-  Promise.all([..._imgPromiseAll]).then(() => {
-    _imgWrapperNode.forEach((item) => {
-      appendNode(item, _imgAll[10].cloneNode())
-    })
-    timeLineChange()
-  })
-})
-// 自定义事件
+window.addEventListener('load', () => init())
 const evt_change_start = new Event('timeLineChangeStart');
 window.addEventListener('timeLineChangeStart', () => timeLineChange())
 const evt_change_end= new Event('timeLineChangeEnd');
 window.addEventListener('timeLineChangeEnd', () => setTimeout(() => clock(), 1000))
 
+function init() {
+  document.querySelector('.el_psy_congroo').addEventListener('click', () => timeLineChangeStart())
+  _imgWrapperNode = document.querySelectorAll('.img-wrapper')
+  if(localStorage.getItem('ifcached') === 'yes') {
+    _pattern = 1
+    allImgLoad().then(() => start() )
+  } else {
+    _pattern = 0
+    allImgLoad().then(() => {
+      saveInLocalStoraeg()
+      start()
+    })
+  }
+}
+function start() {
+  setFontSize()
+  _imgWrapperNode.forEach((item) => {
+    appendNode(item, _imgAll[10].cloneNode())
+  })
+  timeLineChange()
+}
 function setFontSize() {
   const html = document.querySelector('html')
   let fontSize = window.innerWidth / 10
   fontSize = fontSize > 150 ? 150 : fontSize
   html.style.fontSize = fontSize + 'px'
 }
+function timeLineChangeStart() {
+  clearInterval(_timer)
+  if (!_lock) {
+    _currentRandom = 0
+    _lock = true
+    window.dispatchEvent(evt_change_start)
+  }
+}
 function timeLineChange() {
-    setTimeout(() => {
-      if (_currentRandom < _allRandom) {
-        _currentRandom += 1
-        timeLineChange()
-        _imgWrapperNode.forEach((item,idx) => {
-          if (_currentRandom > _allRandom - 5 &&  idx === 0 ) {
-            replaceNode(_imgWrapperNode[0],  _imgAll[Math.floor( Math.random() * 3)].cloneNode())
-          }
-          else if (idx !== 1) {
-            replaceNode(item, _imgAll[Math.floor( Math.random() * 10)].cloneNode())
-          } else {
-            replaceNode(item, _imgAll[11].cloneNode())
-          }
-        })
-      } else {
-        _lock = false
-        window.dispatchEvent(evt_change_end)
-      }
-    }, (80))
+  setTimeout(() => {
+    if (_currentRandom < _allRandom) {
+      timeLineChange()
+      _currentRandom += 1
+      _imgWrapperNode.forEach((item,idx) => {
+        if (_currentRandom > _allRandom - 5 &&  idx === 0 ) {
+          replaceNode(_imgWrapperNode[0],  _imgAll[Math.floor( Math.random() * 3)].cloneNode())
+        }
+        else if (idx !== 1) {
+          replaceNode(item, _imgAll[Math.floor( Math.random() * 10)].cloneNode())
+        } else {
+          replaceNode(item, _imgAll[11].cloneNode())
+        }
+      })
+    } else {
+      timeLineChangeEnd()
+    }
+  }, (80))
+}
+function timeLineChangeEnd() {
+  _lock = false
+  window.dispatchEvent(evt_change_end)
 }
 function clock() {
   _timer = setInterval(() => {
@@ -87,19 +95,40 @@ function clock() {
       replaceNode(_imgWrapperNode[5],  _imgAll[12].cloneNode())
     }
     _flag = _flag === 0 ? 1 : 0
-
   }, 1000);
 }
-function imgLoad (imgAll,i) {
-  return new Promise((resolve) => {
-    imgAll[i] = new Image()
-    imgAll[i].src = './img/' + i + '.png'
-    imgAll[i].addEventListener('load', function() {
-      resolve()
+function allImgLoad() {
+  let arrPromis = []
+  for (let i=0; i<13; ++i) {
+    arrPromis[i] = new Promise((resolve) => {
+      _imgAll[i] = new Image()
+      if (_pattern === 1) {
+        _imgAll[i].src = localStorage.getItem(i)
+      } else {
+        _imgAll[i].src = './img/' + i + '.png'
+      }
+      _imgAll[i].addEventListener('load', function() {
+        resolve()
+      })
     })
-  })
+  }
+  return Promise.all([...arrPromis])
 }
-
+function saveInLocalStoraeg() {
+  try {
+    for (let i=0; i<_imgAll.length; ++i) {
+      let canvas = document.createElement('canvas')
+      canvas.width = _imgAll[i].width
+      canvas.height = _imgAll[i].height
+      let ctx = canvas.getContext('2d')
+      ctx.drawImage(_imgAll[i], 0, 0)
+      localStorage.setItem(i, canvas.toDataURL('image/png'))
+    }
+    localStorage.setItem('ifcached', 'yes')
+  } catch(err) {
+    alert('不能讲图片数据保存在localstorage中')
+  }
+}
 function throttle(fn,wait,time) {
   let previous = null //记录上一次运行的时间
   let timer = null // 定时器
