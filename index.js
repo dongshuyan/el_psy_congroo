@@ -22,7 +22,13 @@ function init() {
   } else {
     _pattern = 0
     allImgLoad().then(() => {
-      saveInLocalStoraeg()
+      for (let i=0; i<_imgAll.length; ++i) {
+        saveImgInLocalStorage(i, _imgAll[i])
+      }
+      /* 额外添加一个字段 */
+      if (getImgFromLocalStorage(0)) {
+        localStorage.setItem('ifcached', 'yes')
+      }
       start()
     })
   }
@@ -34,14 +40,8 @@ function start() {
   })
   timeLineChange()
 }
-function setFontSize() {
-  const html = document.querySelector('html')
-  let fontSize = window.innerWidth / 10
-  fontSize = fontSize > 150 ? 150 : fontSize
-  html.style.fontSize = fontSize + 'px'
-}
 function timeLineChangeStart() {
-  clearInterval(_timer)
+  clearTimeout(_timer)
   if (!_lock) {
     _currentRandom = 0
     _lock = true
@@ -73,7 +73,7 @@ function timeLineChangeEnd() {
   window.dispatchEvent(evt_change_end)
 }
 function clock() {
-  _timer = setInterval(() => {
+  _timer = setTimeout(() => {
     const nowTime = new Date()
     let hour = nowTime.getHours()
     let mins = nowTime.getMinutes()
@@ -87,7 +87,7 @@ function clock() {
         replaceNode(_imgWrapperNode[i], _imgAll[time[i]].cloneNode())
       }
     }
-    if ( _flag ===0 ) {
+    if ( _flag === 0 ) {
       replaceNode(_imgWrapperNode[2],  _imgAll[11].cloneNode())
       replaceNode(_imgWrapperNode[5],  _imgAll[11].cloneNode())
     } else if (_flag === 1) {
@@ -95,6 +95,7 @@ function clock() {
       replaceNode(_imgWrapperNode[5],  _imgAll[12].cloneNode())
     }
     _flag = _flag === 0 ? 1 : 0
+    clock()
   }, 1000);
 }
 function allImgLoad() {
@@ -103,7 +104,7 @@ function allImgLoad() {
     arrPromis[i] = new Promise((resolve) => {
       _imgAll[i] = new Image()
       if (_pattern === 1) {
-        _imgAll[i].src = localStorage.getItem(i)
+        _imgAll[i].src = getImgFromLocalStorage(i)
       } else {
         _imgAll[i].src = './img/' + i + '.png'
       }
@@ -114,20 +115,27 @@ function allImgLoad() {
   }
   return Promise.all([...arrPromis])
 }
-function saveInLocalStoraeg() {
-  try {
-    for (let i=0; i<_imgAll.length; ++i) {
-      let canvas = document.createElement('canvas')
-      canvas.width = _imgAll[i].width
-      canvas.height = _imgAll[i].height
-      let ctx = canvas.getContext('2d')
-      ctx.drawImage(_imgAll[i], 0, 0)
-      localStorage.setItem(i, canvas.toDataURL('image/png'))
-    }
-    localStorage.setItem('ifcached', 'yes')
-  } catch(err) {
-    alert('不能讲图片数据保存在localstorage中')
-  }
+function saveImgInLocalStorage(name, img) {
+  let canvas = document.createElement('canvas')
+  canvas.width = img.width
+  canvas.height = img.height
+  let ctx = canvas.getContext('2d')
+  ctx.drawImage(img, 0, 0)
+  localStorage.setItem(name, canvas.toDataURL('image/png'))
+}
+function getImgFromLocalStorage(name) {
+  return localStorage.getItem(name)
+}
+function appendNode(paNode, newNode) {
+  paNode.appendChild(newNode)
+}
+function replaceNode(paNode, newNode) {
+  // paNode.replaceChild(newNode, paNode.firstChild)
+  // 会报错 ，但不影响执行
+  // Uncaught TypeError: Failed to execute 'replaceChild' on 'Node': 
+  // parameter 2 is not of type 'Node'.
+  paNode.innerHTML = ''
+  paNode.appendChild(newNode)
 }
 function throttle(fn,wait,time) {
   let previous = null //记录上一次运行的时间
@@ -148,14 +156,9 @@ function throttle(fn,wait,time) {
       }
   }
 }
-function appendNode(paNode, newNode) {
-  paNode.appendChild(newNode)
-}
-function replaceNode(paNode, newNode) {
-  // paNode.replaceChild(newNode, paNode.firstChild)
-  // 会报错 ，但不影响执行
-  // Uncaught TypeError: Failed to execute 'replaceChild' on 'Node': 
-  // parameter 2 is not of type 'Node'.
-  paNode.innerHTML = ''
-  paNode.appendChild(newNode)
+function setFontSize() {
+  const html = document.querySelector('html')
+  let fontSize = window.innerWidth / 10
+  fontSize = fontSize > 150 ? 150 : fontSize
+  html.style.fontSize = fontSize + 'px'
 }
